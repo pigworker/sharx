@@ -1,1 +1,7 @@
 # Testing Sharx
+
+{pipe('send(`hello`); 'send(`world`),`{'recv()} {'recv()}`)}
+~~~
+pipe(<s>, x) = x
+pipe(<'send(x)->s>, <'recv()->r>) = pipe(s([]), r(x))
+pipe(v, <r>) = 'abort()

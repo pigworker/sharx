@@ -31,4 +31,5 @@ main = do
         (post : gett : _) -> (postText post, postText gett)
         _ -> ([], [])
   case xs of
+    (u : p : _) -> TIO.putStr =<< process p
     _ -> TIO.putStr "# sharx says\n I don't know what you're on about."

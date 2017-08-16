@@ -2,9 +2,7 @@
 
     does pandoc treat this as code?
 
-\`\`\`
-how about this?
-\`\`\`
+I wonder what \`this\` turns into.
 
 $x^2$
 

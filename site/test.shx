@@ -2,9 +2,9 @@
 
     does pandoc treat this as code?
 
-```
+\`\`\`
 how about this?
-```
+\`\`\`
 
 I hope *something* works.
 

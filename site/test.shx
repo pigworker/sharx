@@ -1,5 +1,13 @@
 # Testing Sharx
 
+    does pandoc treat this as code?
+
+```
+how about this?
+```
+
+I hope *something* works.
+
 {pipe('send(`hello`); 'send(`world`),`{'recv()} {'recv()}`)}
 ~~~
 pipe(<s>, x) = x

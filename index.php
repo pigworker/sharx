@@ -11,7 +11,7 @@ $descriptorspec = array(
    2 => array("file", "/tmp/error-output.txt", "a") // stderr is a file to write to
 );
 
-$cmd = "./sharx $user_id $page_id | pandoc";
+$cmd = "./sharx $user_id $page_id | ./pandoc";
 
 $cwd = NULL;
 $env = NULL;

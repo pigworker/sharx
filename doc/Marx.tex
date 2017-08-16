@@ -1,0 +1,162 @@
+\documentclass{article}
+\usepackage{a4}
+\usepackage{times}
+
+\input{banner.tex}
+
+\begin{document}
+\title{combining {\tt marx} with {\tt shonky},\\
+       and maybe {\tt postessa}, too,\\
+       with some help from {\tt GitLab}}
+\author{Conor McBride}
+\maketitle
+
+\section{introduction}
+
+I'm looking to integrate three systems and make them more useful to people who aren't just me. They are
+\begin{description}
+\item[\tt marx] the web server I use for CS106 (also, last year, CS316), delivering teaching materials, online exercises, tests, pages for lectures and tutorials, you name it
+\item[\tt postessa] the system which takes images emailed to {\tt pics@strath.ac.uk}, identifies what and whose they are, then files them appropriately (for use by {\tt marx})
+\item[\tt shonky] a functional-ish language with LISP-like data, C-like code, and support for effect-and-handlers, making coroutining a breeze (it's used as the back end for the effect-typed language, Frank, that I do actual research about)
+\end{description}
+Preferably, groups of willing individuals should be able to build {\tt marx} sites for their own classes as collaborative projects on {\tt GitLab}.
+
+Old {\tt marx} was a markdown preprocessor with knobs on. The main knobs were
+\begin{itemize}
+\item special directives, delivering CS106-specific content, hooking into CS106-specific components of {\tt marx} itself---that's got to go
+\item the ability to generate different views, depending on who is logged in and what they ask for (specifically, staff can `snoop' on students, in order to offer help or mark work)
+\item the ability to read per page or per student configuration data (and write it, if you're staff)
+\item the ability to read and write per page per student data (and thus mediate exercises and tests)
+\item a very weak programming language of Boolean formulae, just about adequate to the task of computing which marks a student deserves, based on a bunch of checkboxes
+\end{itemize}
+
+Meanwhile, {\tt postessa} does the filing for images with a \emph{banner} at the top, like this:
+
+\noindent\hspace*{-0.8in}\rule{7in}{0.4pt}
+
+\vspace*{1.6in}
+\banner{systems}{conor}{mumble}
+\noindent\hspace*{-0.8in}\rule{7in}{0.4pt}
+
+The leftmost column, `systems conor mumble' is the \emph{job code}, identifying respectively the \emph{class}, \emph{author} and \emph{task}. The students identify themselves by deleting their individually assigned `three little words', one from each line. The banner is converted from an image to text by standard OCR kit ({\tt tesseract}) and the words missing from the output provide the data needed. The {\tt postessa} system needs two directories of configuration information, both of which currently live in my filespace---that's got to go:
+\begin{description}
+\item[classes] there is a subdirectory for each \emph{class}, whose name is \emph{classword}-\emph{checksum}-\emph{classcode} (where the \emph{classword} is, e.g., `systems', and the checksum is a hexadecimal digit); it contains an eponymous textfile for each \emph{author}, with a big list of possible \emph{task} names; {\tt postessa} identifies the job by minimising the edit distance from the scanned job words to the words expected in this configuration information
+\item[cohorts] there is a file for each \emph{cohort} whose name is that cohort's \emph{checksum}, with one line per student, giving lots of useful data (keys like username, regnum, email, three-little-words, non-keys like real name, degree programme, registered classes); the cohort file also needs an entry for all the \emph{staff} who teach that cohort, so that they can participate (members of staff can have a steady first and second word (mine are `jay egg') but the third word will vary with the cohort checksum); year by year, we change the mapping from classes to cohorts, so that students (usually) keep their codes
+\end{description}
+
+It gets worse: {\tt marx} relies on {\tt postessa}'s configuration information, in that the site for a given class maps to a particular cohort, allowing the user's status to be identified (so that the site can remind them of their three little words, and so that staff can be recognized and privileged as such). Also, {\tt marx} can fish up from the database a given user's identified images, keyed by job code. The page for a given lecture can thus show the student their own one minute paper; the page for a test can show the paper part of that test.
+
+
+\section{what structure is needed?}
+
+Some classes will want a {\tt marx} site. Each such class will have sets of people (each included in the next)
+\begin{description}
+\item[a convenor] the academic responsible for the delivery of the class
+\item[staff] who generate content for the class site and are active in assessment
+\item[assistants] (e.g. lab demonstrators) who do not create content or mark, but are involved in delivery
+\item[participants] (most of whom are students) who access teaching and assessment activities as expected users
+\item[citizens] any member of the department who happens to be interested
+\item[punters] anonymous individuals out there on the internet
+\end{description}
+
+(Is it necessary to separate `markers' from `staff'? There may be people authorised to mark who are not authorised to edit content. The other way around seems less likely.)
+
+We need to know which of the participants are students registered for the class. However, all participants
+should be enabled with a three-little-word code to deliver images.
+
+All citizens are entitled to cross-session persistence when interacting with the system: each such citizen generates data which is stored as a transaction log, filed by username. Non-citizen punters interacting with the system do not generate such a transaction log (but of course their web access is logged), but they can still enjoy interaction on the basis of client-side session state shipped as POST-data.
+
+The teaching and assessment materials for the class site will live in a departmental {\tt GitLab} repository owned by the convenor and shared with the staff. (Assistants may or my not be given read access.) Ideally, pushing to the master branch of the project should be the means of deploying content.
+
+For participant access, in order to serve a page and update relevant logs, the {\tt marx} system needs access to
+\begin{itemize}
+\item the \emph{username} of the participant
+\item the tables which translate usernames to real names, three-little-words, registration numbers, email addresses, and staff/student status data
+\item the file system location of the site
+\item the file system location of the transaction logs for the site
+\item the page to be served from the site
+\item the view of that page which the user seeks (which must be permitted by their status)
+\item the transaction logs relevant to that view of that page
+\item the image uploads relevant to that view of that page (arguably not needed, in that {\tt marx} can serve image links to some lump of {\tt php} that knows where the images are really located, but it is useful to know which images exist, e.g. one minute paper images are evidence of attendance)
+\end{itemize}
+
+Participant access should result in the serving of a page, but may also result in other actions
+\begin{itemize}
+\item the transaction logs may be updated (including the update of page configuration by staff)
+\item alerts may be generated (a student modifying a comment box might be queued for attention)
+\item external reports may be generated (usually from a staff access), e.g. an upload of marks or
+  attendance data
+\end{itemize}
+
+It is \emph{possible}, but not necessarily desirable, for the convenor to achieve these accesses,
+hosting {\tt marx} in their personal webspace:
+\begin{itemize}
+\item the deployed copy of the site lives in their webspace, regularly checked out from {\tt GitLab}
+  by a {\tt cron} job; {\tt apache} configuration prevents browser access to this directory
+\item the transaction logs also live in their webspace, again concealed from browsers
+\item the image uploads live in a database whose coordinates are fed to {\tt marx} as parameters
+\item a static copy of relevant user identity data can be dumped somewhere accessible
+\end{itemize}
+
+Meanwhile, {\tt postessa}, running on the {\tt pics} account, needs access to user identity info, together with the information about which jobs exist for each class (which would ideally be speficied by a file in the class repository, so that all class staff can add jobs. Again, this seems like {\tt cron} or bust, from a convenor perspective.
+
+Correspondingly, a centralized departmental approach might be better, allowing deployment via {\tt GitLab} support for continuous integration.
+
+
+\section{programming in {\tt shonky}}
+
+Our programming language, {\tt shonky}, is an untyped (for the moment---the typed variant, Frank, is another story)
+functional language.
+
+\newcommand{\qt}{\mbox{\tt '}\!} 
+\newcommand{\pa}[1]{\mbox{\tt (}#1\mbox{\tt )}} 
+\newcommand{\bk}[1]{\mbox{\tt [}#1\mbox{\tt ]}} 
+\newcommand{\bc}[1]{\mbox{\tt \{}#1\mbox{\tt \}}}
+\newcommand{\ch}[1]{\mbox{\tt <}#1\mbox{\tt >}}
+\newcommand{\sq}{\mbox{\tt ;}\,}
+\newcommand{\ba}{\mbox{\tt |}}
+\newcommand{\cm}{\mbox{\tt ,}\,}
+\newcommand{\ar}{\mbox{\tt ->}}
+\newcommand{\tk}[1]{\mbox{\tt `}#1\mbox{\tt `}}
+An \emph{identifier}, $x$, is given by an alphabetical character followed by zero or more alphanumeric characters.
+An \emph{atom}, $\qt a$, is given by a single quote followed by zero or more alphanumeric characters.
+An \emph{expression}, $e$, is given by the grammar
+\[\begin{array}{rrl@{\qquad}l}
+\mbox{expression}\;
+e & ::= & x & \mbox{variable} \\
+  &   | & \qt a & \mbox{atom} \\
+  &   | & \bk{} & \mbox{nil} \\
+  &   | & \bk{e\:\bar{e}} & \mbox{cons} \\
+  &   | & e\pa{e_1\cm\ldots\cm e_n} & \mbox{application} \\
+  &   | & e_1\sq e_2 & \mbox{sequencing} \\
+  &   | & \bc{r_1 \ba\ldots\ba r_n} & \mbox{abstraction} \\
+  &   | & \tk t & \mbox{text} \medskip \\
+\mbox{expressions}\;
+\bar{e} & ::= & \ba e & \mbox{raw pairing} \\
+  &   | & & \mbox{singleton, i.e.,}\; \ba \bk{} \\
+  &   | & e\;\bar{e} & \mbox{listing, i.e.,}\; \ba \bk{e\;\bar{e}} \medskip \\
+\mbox{rule}\;
+r & ::= & e & \mbox{nullary abstraction} \\
+  &   | & p_1\cm\ldots\cm p_n \;\ar\;e & \mbox{pattern abstraction} \medskip \\
+\mbox{computation pattern}\;
+p & ::= & q & \mbox{value pattern} \\
+  &   | & \ch{x} & \mbox{thunk pattern} \\
+  &   | & \ch{\qt a\pa{q_1\cm\ldots\cm q_n}\;\ar\; x} & \mbox{command pattern} \medskip\\
+\mbox{value pattern}\;
+q & ::= & x & \mbox{match any value} \\
+  &   | & \qt a & \mbox{atom} \\
+  &   | & \bk{} & \mbox{nil} \\
+  &   | & \bk{q\:\bar{q}} & \mbox{cons} \medskip\\
+\mbox{value patterns}\;
+\bar{q} & ::= & \ba q & \mbox{raw pairing} \\
+  &   | & & \mbox{singleton, i.e.,}\; \ba \bk{} \\
+  &   | & q\;\bar{q} & \mbox{listing, i.e.,}\; \ba \bk{q\;\bar{q}} \\
+\mbox{text}\;
+t & ::= & & \mbox{null} \\
+  &   | & ct & \mbox{character then more} \\
+  &   | & \bc{e} & \mbox{splice} 
+\end{array}\]
+where a character $c$ is any individual character other than \verb|`{}\| or a \verb|\| escaping any character at all. Note that texts may contain line endings.
+
+
+\end{document}

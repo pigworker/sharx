@@ -1,8 +1,5 @@
 <?php
-require 'auth.php';
-
-$attributes = $authenticationSource->getAttributes();
-$user_id = escapeshellarg($attributes[uid][0]);
+$user_id = escapeshellarg($_SERVER['HTTP_CIS_REMOTE_USER']);
 $page_id = escapeshellarg($_GET["page"]);
 
 $descriptorspec = array(
